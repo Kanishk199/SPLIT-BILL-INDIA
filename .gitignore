@@ -40,3 +40,6 @@ Thumbs.db
 # Vercel
 .vercel/
 
+# Antigravity agents & local MCP config
+.agents/
+
