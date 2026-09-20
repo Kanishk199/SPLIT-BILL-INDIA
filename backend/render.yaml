@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: billsplit-india-api
+    runtime: node
+    plan: free
+    buildCommand: "node node_modules/typescript/bin/tsc"
+    startCommand: "node dist/index.js"
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+    healthCheckPath: /api/health

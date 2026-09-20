@@ -1,0 +1,10 @@
+{
+  "name": "billsplit-india",
+  "private": true,
+  "scripts": {
+    "dev": "node run.js",
+    "dev:backend": "pnpm --dir backend dev",
+    "dev:frontend": "pnpm --dir frontend dev",
+    "build": "pnpm --dir backend build && pnpm --dir frontend build"
+  }
+}
