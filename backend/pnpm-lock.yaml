@@ -14,6 +14,24 @@ importers:
       '@prisma/client':
         specifier: ^5.22.0
         version: 5.22.0(prisma@5.22.0)
+      '@types/bcryptjs':
+        specifier: ^2.4.6
+        version: 2.4.6
+      '@types/cors':
+        specifier: ^2.8.17
+        version: 2.8.19
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/jsonwebtoken':
+        specifier: ^9.0.7
+        version: 9.0.10
+      '@types/multer':
+        specifier: ^1.4.12
+        version: 1.4.13
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.20.4
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
@@ -41,37 +59,19 @@ importers:
       multer:
         specifier: ^1.4.5-lts.1
         version: 1.4.5-lts.2
+      prisma:
+        specifier: ^5.22.0
+        version: 5.22.0
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
       zod:
         specifier: ^3.23.8
         version: 3.25.76
     devDependencies:
-      '@types/bcryptjs':
-        specifier: ^2.4.6
-        version: 2.4.6
-      '@types/cors':
-        specifier: ^2.8.17
-        version: 2.8.19
-      '@types/express':
-        specifier: ^4.17.21
-        version: 4.17.25
-      '@types/jsonwebtoken':
-        specifier: ^9.0.7
-        version: 9.0.10
-      '@types/multer':
-        specifier: ^1.4.12
-        version: 1.4.13
-      '@types/node':
-        specifier: ^22.9.0
-        version: 22.20.4
-      prisma:
-        specifier: ^5.22.0
-        version: 5.22.0
       ts-node-dev:
         specifier: ^2.0.0
         version: 2.0.0(@types/node@22.20.4)(typescript@5.9.3)
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
 
 packages:
 
