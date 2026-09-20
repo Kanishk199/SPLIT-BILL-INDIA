@@ -69,7 +69,7 @@ export const settlementsApi = {
 
 // ===== PAYMENTS =====
 export const paymentsApi = {
-  create: (data: { billId?: string; groupId?: string; toId: string; amount: string; note?: string; method?: string }) =>
+  create: (data: { billId?: string; groupId?: string; fromId?: string; toId?: string; amount: string; note?: string; method?: string }) =>
     api.post<{ payment: Payment }>('/api/payments', data),
   list: () => api.get<{ payments: Payment[] }>('/api/payments'),
 };

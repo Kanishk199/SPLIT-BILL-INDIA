@@ -1,9 +1,10 @@
 {
-  "version": 2,
   "buildCommand": "pnpm run build",
   "outputDirectory": "dist",
-  "installCommand": "pnpm install",
-  "env": {
-    "VITE_API_URL": "@billsplit-api-url"
-  }
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }

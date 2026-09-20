@@ -61,30 +61,89 @@ router.post('/chat', authenticate, async (req: AuthRequest, res: Response): Prom
     let billItems: Array<{ id: string; name: string; price: string }> = [];
 
     if (body.context?.groupId) {
-      const balances = await calculateBalances(body.context.groupId);
-      const myBalance = balances.find((b) => b.userId === userId);
-      balanceSummary = balances
-        .map((b) => {
-          const net = new Decimal(b.netBalance);
-          if (net.gt(0)) return `${b.userName} owes you ₹${net.toFixed(2)}`;
-          if (net.lt(0)) return `You owe ${b.userName} ₹${net.abs().toFixed(2)}`;
-          return `${b.userName} is settled`;
-        })
-        .join('\n');
-
       const group = await prisma.group.findUnique({
         where: { id: body.context.groupId },
-        include: { members: { include: { user: { select: { id: true, name: true } } } } },
+        include: {
+          members: { include: { user: { select: { id: true, name: true, email: true } } } },
+          bills: {
+            take: 5,
+            orderBy: { createdAt: 'desc' },
+            include: { payer: { select: { id: true, name: true } }, items: true }
+          }
+        },
       });
-      groupMembers = group?.members.map((m) => ({ id: m.userId, name: m.user.name })) || [];
+
+      if (group) {
+        groupMembers = group.members.map((m) => ({ id: m.userId, name: m.user.name }));
+        const balances = await calculateBalances(group.id);
+
+        const memberBalances = balances
+          .map((b) => {
+            const net = new Decimal(b.netBalance);
+            const isMe = b.userId === userId;
+            if (isMe) {
+              return net.gt(0) ? `You are owed ₹${net.toFixed(2)} in total in this group.` : net.lt(0) ? `You owe ₹${net.abs().toFixed(2)} in total in this group.` : 'Your balance is settled (₹0).';
+            }
+            return net.gt(0) ? `${b.userName} is owed ₹${net.toFixed(2)}` : net.lt(0) ? `${b.userName} owes ₹${net.abs().toFixed(2)}` : `${b.userName} is settled`;
+          })
+          .join('\n');
+
+        const recentBills = group.bills.length > 0
+          ? `Recent bills:\n` + group.bills.map((b) => `- "${b.title}": ₹${b.total} (paid by ${b.payer.name}) with items: ${b.items.map(i => `${i.name} (₹${i.price})`).join(', ')}`).join('\n')
+          : 'No bills recorded in this group yet.';
+
+        balanceSummary = `Active Group: "${group.name}"\nMembers: ${group.members.map(m => m.user.name).join(', ')}\nBalances:\n${memberBalances}\n${recentBills}`;
+      }
+    } else {
+      // Find all groups user belongs to
+      const groups = await prisma.group.findMany({
+        where: { members: { some: { userId } } },
+        include: {
+          members: { include: { user: { select: { id: true, name: true, email: true } } } },
+          bills: {
+            take: 3,
+            orderBy: { createdAt: 'desc' },
+            include: { payer: { select: { id: true, name: true } }, items: true }
+          }
+        }
+      });
+
+      const memberMap = new Map<string, { id: string; name: string }>();
+      const groupSummaries: string[] = [];
+
+      for (const g of groups) {
+        g.members.forEach((m) => memberMap.set(m.userId, { id: m.userId, name: m.user.name }));
+        const balances = await calculateBalances(g.id);
+        const myBal = balances.find((b) => b.userId === userId);
+        const myStatus = myBal ? (new Decimal(myBal.netBalance).gt(0) ? `others owe you ₹${new Decimal(myBal.netBalance).toFixed(2)}` : new Decimal(myBal.netBalance).lt(0) ? `you owe ₹${new Decimal(myBal.netBalance).abs().toFixed(2)}` : 'settled') : 'settled';
+
+        const otherOwes = balances
+          .filter(b => b.userId !== userId)
+          .map(b => `${b.userName} (${new Decimal(b.netBalance).gt(0) ? 'is owed ₹' + b.netBalance : new Decimal(b.netBalance).lt(0) ? 'owes ₹' + new Decimal(b.netBalance).abs().toFixed(2) : 'settled'})`)
+          .join(', ');
+
+        let gSummary = `• Group "${g.name}": ${myStatus}. Members: ${otherOwes || 'None'}.`;
+        if (g.bills.length > 0) {
+          gSummary += ` Bills: ` + g.bills.map(b => `${b.title} (₹${b.total}, paid by ${b.payer.name})`).join(', ');
+        }
+        groupSummaries.push(gSummary);
+      }
+
+      groupMembers = Array.from(memberMap.values());
+      balanceSummary = groupSummaries.length > 0
+        ? `User's Groups & Balances Overview:\n` + groupSummaries.join('\n')
+        : 'User is not part of any groups yet.';
     }
 
     if (body.context?.billId) {
       const bill = await prisma.bill.findUnique({
         where: { id: body.context.billId },
-        include: { items: true },
+        include: { items: true, payer: { select: { id: true, name: true } } },
       });
-      billItems = bill?.items.map((i) => ({ id: i.id, name: i.name, price: i.price })) || [];
+      if (bill) {
+        billItems = bill.items.map((i) => ({ id: i.id, name: i.name, price: i.price }));
+        balanceSummary += `\nCurrent specific bill: "${bill.title}" (Total: ₹${bill.total}, Paid by: ${bill.payer.name})`;
+      }
     }
 
     // Build conversation history for Gemini

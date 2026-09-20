@@ -8,7 +8,8 @@ const router = Router();
 const createPaymentSchema = z.object({
   billId: z.string().optional(),
   groupId: z.string().optional(),
-  toId: z.string(),
+  fromId: z.string().optional(),
+  toId: z.string().optional(),
   amount: z.string(),
   note: z.string().optional(),
   method: z.enum(['upi', 'cash', 'other']).default('other'),
@@ -26,17 +27,37 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
       return;
     }
 
-    // Verify recipient exists
-    const recipient = await prisma.user.findUnique({ where: { id: body.toId } });
-    if (!recipient) {
-      res.status(404).json({ error: 'Recipient not found' });
+    const currentUserId = req.userId!;
+    let fromId = body.fromId || currentUserId;
+    let toId = body.toId || currentUserId;
+
+    // If neither was explicitly different from current user, error
+    if (fromId === toId) {
+      res.status(400).json({ error: 'Sender and recipient cannot be the same user' });
+      return;
+    }
+
+    // Verify current user is one of the parties
+    if (fromId !== currentUserId && toId !== currentUserId) {
+      res.status(403).json({ error: 'You can only record payments you sent or received' });
+      return;
+    }
+
+    // Verify both users exist
+    const [fromUser, toUser] = await Promise.all([
+      prisma.user.findUnique({ where: { id: fromId } }),
+      prisma.user.findUnique({ where: { id: toId } }),
+    ]);
+
+    if (!fromUser || !toUser) {
+      res.status(404).json({ error: 'One or more payment participants not found' });
       return;
     }
 
     const payment = await prisma.payment.create({
       data: {
-        fromId: req.userId!,
-        toId: body.toId,
+        fromId,
+        toId,
         amount: body.amount,
         note: body.note,
         method: body.method,
@@ -55,7 +76,8 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
       res.status(400).json({ error: 'Validation failed', details: err.errors });
       return;
     }
-    throw err;
+    console.error('Error creating payment:', err);
+    res.status(500).json({ error: 'Failed to record payment' });
   }
 });
 
@@ -76,7 +98,8 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response): Promise<v
 
     res.json({ payments });
   } catch (err) {
-    throw err;
+    console.error('Error fetching payments:', err);
+    res.status(500).json({ error: 'Failed to fetch payments' });
   }
 });
 
