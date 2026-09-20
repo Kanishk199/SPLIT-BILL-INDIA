@@ -38,7 +38,7 @@ const assignSchema = z.object({
 });
 
 // POST /api/bills/scan - upload and OCR a bill
-router.post('/scan', authenticate, upload.single('bill'), async (req: AuthRequest, res: Response): Promise<void> => {
+router.post('/scan', authenticate, upload.single('bill') as any, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     if (!req.file) {
       res.status(400).json({ error: 'No file uploaded' });
@@ -210,7 +210,13 @@ router.post('/:id/items', authenticate, async (req: AuthRequest, res: Response):
     const body = itemSchema.parse(req.body);
 
     const item = await prisma.billItem.create({
-      data: { billId: req.params.id, ...body },
+      data: {
+        billId: req.params.id,
+        name: body.name,
+        quantity: body.quantity,
+        price: body.price,
+        totalPrice: body.totalPrice,
+      },
     });
     res.status(201).json({ item });
   } catch (err) {

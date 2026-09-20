@@ -3,6 +3,7 @@ services:
     name: billsplit-india-api
     runtime: node
     plan: free
+    rootDir: backend
     buildCommand: "npm install && npm run build"
     startCommand: "npm run start"
     envVars:

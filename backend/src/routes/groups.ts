@@ -59,7 +59,10 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response): Promise<
 
     const group = await prisma.group.create({
       data: {
-        ...body,
+        name: body.name,
+        description: body.description,
+        category: body.category,
+        emoji: body.emoji,
         members: {
           create: { userId: req.userId!, role: 'admin' },
         },
