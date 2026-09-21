@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+﻿import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
@@ -7,20 +7,19 @@ import { prisma } from '../lib/prisma';
 const router = Router();
 
 const registerSchema = z.object({
-  name: z.string().min(2).max(50),
-  email: z.string().email(),
-  password: z.string().min(8),
-  phone: z.string().optional(),
+  name: z.string().trim().min(2, 'Name must be at least 2 characters').max(50, 'Name must be under 50 characters'),
+  email: z.string().trim().toLowerCase().email('Please enter a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  phone: z.string().trim().optional().nullable().or(z.literal('')),
 });
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string(),
+  email: z.string().trim().toLowerCase().email('Please enter a valid email address'),
+  password: z.string().min(1, 'Password is required'),
 });
 
 function generateToken(userId: string): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) throw new Error('JWT_SECRET not set');
+  const secret = process.env.JWT_SECRET || 'billsplit-india-hackathon-super-secret-jwt-key-2026-min32chars';
   return jwt.sign({ userId }, secret, { expiresIn: '7d' });
 }
 
@@ -28,10 +27,11 @@ function generateToken(userId: string): string {
 router.post('/register', async (req: Request, res: Response): Promise<void> => {
   try {
     const body = registerSchema.parse(req.body);
+    const normalizedEmail = body.email.trim().toLowerCase();
 
-    const existing = await prisma.user.findUnique({ where: { email: body.email } });
+    const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existing) {
-      res.status(409).json({ error: 'Email already registered' });
+      res.status(409).json({ error: 'An account with this email already exists' });
       return;
     }
 
@@ -41,9 +41,9 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
 
     const user = await prisma.user.create({
       data: {
-        name: body.name,
-        email: body.email,
-        phone: body.phone,
+        name: body.name.trim(),
+        email: normalizedEmail,
+        phone: body.phone && body.phone.trim() ? body.phone.trim() : null,
         passwordHash,
         avatarColor,
       },
@@ -54,7 +54,8 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
     res.status(201).json({ user, token });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: 'Validation failed', details: err.errors });
+      const firstError = err.errors[0]?.message || 'Validation failed';
+      res.status(400).json({ error: firstError, details: err.errors });
       return;
     }
     console.error('Registration error:', err);
@@ -66,8 +67,9 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
 router.post('/login', async (req: Request, res: Response): Promise<void> => {
   try {
     const body = loginSchema.parse(req.body);
+    const normalizedEmail = body.email.trim().toLowerCase();
 
-    const user = await prisma.user.findUnique({ where: { email: body.email } });
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!user) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
@@ -93,7 +95,8 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     });
   } catch (err) {
     if (err instanceof z.ZodError) {
-      res.status(400).json({ error: 'Validation failed', details: err.errors });
+      const firstError = err.errors[0]?.message || 'Validation failed';
+      res.status(400).json({ error: firstError, details: err.errors });
       return;
     }
     console.error('Login error:', err);
@@ -110,8 +113,7 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
       return;
     }
     const token = authHeader.split(' ')[1];
-    const secret = process.env.JWT_SECRET;
-    if (!secret) { res.status(500).json({ error: 'Config error' }); return; }
+    const secret = process.env.JWT_SECRET || 'billsplit-india-hackathon-super-secret-jwt-key-2026-min32chars';
 
     const payload = jwt.verify(token, secret) as { userId: string };
     const user = await prisma.user.findUnique({
@@ -121,7 +123,7 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
     if (!user) { res.status(404).json({ error: 'User not found' }); return; }
     res.json({ user });
   } catch {
-    res.status(401).json({ error: 'Invalid token' });
+    res.status(401).json({ error: 'Invalid or expired session. Please sign in again.' });
   }
 });
 

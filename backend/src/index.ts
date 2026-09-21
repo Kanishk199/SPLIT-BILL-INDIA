@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
@@ -21,6 +21,9 @@ import { prisma } from './lib/prisma';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy for reverse proxies (Render, Vercel, Nginx, Cloudflare)
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
@@ -33,11 +36,13 @@ app.use(cors({
     if (
       !origin ||
       allowedOrigins.includes(origin) ||
-      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+      /^https?:\/\/192\.168\.\d+\.\d+(:\d+)?$/.test(origin) ||
+      /^https:\/\/.*\.vercel\.app$/.test(origin)
     ) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true,
@@ -50,18 +55,22 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 100 : 1000,
+  max: process.env.NODE_ENV === 'production' ? 200 : 2000,
   message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use('/api/', limiter);
 
-// Auth rate limiting (stricter in prod, relaxed in dev)
+// Auth rate limiting
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 15 : 200,
+  max: process.env.NODE_ENV === 'production' ? 60 : 500,
   message: { error: 'Too many auth attempts, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
-app.use('/api/auth/', authLimiter);
+app.use('/api/auth', authLimiter);
 
 // Health check
 app.get('/api/health', async (req, res) => {
@@ -109,7 +118,7 @@ app.use(errorHandler);
 // Start server
 const server = app.listen(PORT, () => {
   console.log(`🚀 BillSplit India API running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 // Graceful shutdown

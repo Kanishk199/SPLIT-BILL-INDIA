@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+﻿const { spawn } = require('child_process');
 const path = require('path');
 
 console.log('🚀 Starting BillSplit India Backend (:3001) & Frontend (:5173)...\n');

@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+﻿import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import api from '../api/client';
 import { authApi } from '../api';
 import type { User } from '../types';
 
@@ -22,9 +23,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const savedToken = localStorage.getItem('billsplit_token');
     const savedUser = localStorage.getItem('billsplit_user');
-    
+
     if (savedToken && savedUser) {
       setToken(savedToken);
+      api.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`;
       try {
         setUser(JSON.parse(savedUser));
       } catch {
@@ -39,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .catch(() => {
           setToken(null);
           setUser(null);
+          delete api.defaults.headers.common['Authorization'];
           localStorage.removeItem('billsplit_token');
           localStorage.removeItem('billsplit_user');
         })
@@ -49,19 +52,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const res = await authApi.login({ email, password });
+    const cleanEmail = email.trim().toLowerCase();
+    const res = await authApi.login({ email: cleanEmail, password });
     const { user: userData, token: tokenData } = res.data;
     setUser(userData);
     setToken(tokenData);
+    api.defaults.headers.common['Authorization'] = `Bearer ${tokenData}`;
     localStorage.setItem('billsplit_token', tokenData);
     localStorage.setItem('billsplit_user', JSON.stringify(userData));
   };
 
   const register = async (name: string, email: string, password: string, phone?: string) => {
-    const res = await authApi.register({ name, email, password, phone });
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
+    const cleanPhone = phone?.trim() || undefined;
+    const res = await authApi.register({ name: cleanName, email: cleanEmail, password, phone: cleanPhone });
     const { user: userData, token: tokenData } = res.data;
     setUser(userData);
     setToken(tokenData);
+    api.defaults.headers.common['Authorization'] = `Bearer ${tokenData}`;
     localStorage.setItem('billsplit_token', tokenData);
     localStorage.setItem('billsplit_user', JSON.stringify(userData));
   };
@@ -69,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     setToken(null);
+    delete api.defaults.headers.common['Authorization'];
     localStorage.removeItem('billsplit_token');
     localStorage.removeItem('billsplit_user');
     window.location.href = '/';
